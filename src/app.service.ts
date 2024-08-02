@@ -1,14 +1,18 @@
 /* eslint-disable prettier/prettier */
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { AxiosResponse } from 'axios';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, throwError } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
+import { DateUtilService } from './date-util.service';
 
 @Injectable()
 export class AppService {
 
-  constructor(private readonly httpService: HttpService){}
+  constructor(
+    private readonly httpService: HttpService, 
+    private readonly dateUtilService: DateUtilService,
+  ){}
 
   getHotels(body: any): Observable<any> {
     const url = 'https://vivaaerobus.app.bidflyer.com/api/hotels/standalone/search';
@@ -16,23 +20,44 @@ export class AppService {
       'Content-type': 'application/json'
     };
 
-    return this.httpService.post(url, body, { headers })
-      .pipe(
-        map((response: AxiosResponse) => {
-          const limitedData = response.data.slice(0, 4).map((hotel) => ({
-            propertyName: hotel.propertyName,
-            starsRank: hotel.starsRank,
-            totalPrice: hotel.totalPrice,
-            currency: hotel.currency,
-            hotelToken: hotel.hotelToken,
-            images: hotel.images[0].urls.Large
-          }));
-          console.log(limitedData);
-          
-          return limitedData;
-        })
-      )
+    return this.attemptGetHotels(body, url, headers, 0);
   }
+
+  private attemptGetHotels(body: any, url: string, headers: any, attempts: number): Observable<any> {
+    return this.httpService.post(url, body, {headers}).pipe(
+      map((response: AxiosResponse) => {
+        if (!response.data || response.data.length === 0) {
+          throw new BadRequestException("Sin resultados")
+        }
+        
+        const limitedData = response.data.slice(0, 4).map((hotel) => ({
+          propertyName: hotel.propertyName,
+          starsRank: hotel.starsRank,
+          totalPrice: hotel.totalPrice,
+          currency: hotel.currency,
+          hotelToken: hotel.hotelToken,
+          images: hotel.images[0].urls.Large
+        }));
+          
+        return limitedData;
+      
+      }),
+      catchError( error => {
+        if (attempts < 2) {
+          const newCheckInDate = this.dateUtilService.addDays(new Date(body.checkInDate), 1);
+          const newCheckOutDate = this.dateUtilService.addDays(new Date(body.checkOutDate), 1);
+          body.checkInDate = newCheckInDate.toISOString().split('T')[0];
+          body.checkOutDate = newCheckOutDate.toISOString().split('T')[0];
+          return this.attemptGetHotels(body, url, headers, attempts + 1);
+        } else {
+          return throwError(() => new BadRequestException('Sin resultados despues de multiples intentos', error))
+        }
+      })
+    )
+  }
+
+
+
 
   getHello(): string {
     return 'Hello World!';

@@ -1,9 +1,13 @@
 /* eslint-disable prettier/prettier */
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CacheModule } from '@nestjs/cache-manager';
 import { HttpModule } from '@nestjs/axios';
+import { DateUtilService } from './date-util.service';
+import { MemoryCacheService } from './memory-cache.service';
+import { CacheMiddleware } from './cache.middleware';
+
 
 @Module({
   imports: [
@@ -17,6 +21,12 @@ import { HttpModule } from '@nestjs/axios';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, DateUtilService, MemoryCacheService],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(CacheMiddleware)
+      .forRoutes({path: 'hotels', method: RequestMethod.POST})
+  }
+}
