@@ -24,6 +24,11 @@ export class AppService {
   }
 
   private attemptGetHotels(body: any, url: string, headers: any, attempts: number): Observable<any> {
+    
+    if (!this.isValidDate(body.checkIn) || !this.isValidDate(body.checkOut)) {
+      throw new BadRequestException("Formato de fecha invalidas")
+    }
+
     return this.httpService.post(url, body, {headers}).pipe(
       map((response: AxiosResponse) => {
         if (!response.data || response.data.length === 0) {
@@ -44,16 +49,24 @@ export class AppService {
       }),
       catchError( error => {
         if (attempts < 2) {
-          const newCheckInDate = this.dateUtilService.addDays(new Date(body.checkInDate), 1);
-          const newCheckOutDate = this.dateUtilService.addDays(new Date(body.checkOutDate), 1);
-          body.checkInDate = newCheckInDate.toISOString().split('T')[0];
-          body.checkOutDate = newCheckOutDate.toISOString().split('T')[0];
+          const newCheckInDate = this.dateUtilService.addDays(new Date(body.checkIn), 1);
+          const newCheckOutDate = this.dateUtilService.addDays(new Date(body.checkOut), 1);
+          body.checkIn = newCheckInDate.toISOString().split('T')[0];
+          body.checkOut = newCheckOutDate.toISOString().split('T')[0];
           return this.attemptGetHotels(body, url, headers, attempts + 1);
         } else {
           return throwError(() => new BadRequestException('Sin resultados despues de multiples intentos', error))
         }
       })
     )
+  }
+
+  private isValidDate(dateString: string): boolean {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dateString)) return false;
+    
+    const date = new Date(dateString);
+    return !isNaN(date.getTime()); 
   }
 
 
