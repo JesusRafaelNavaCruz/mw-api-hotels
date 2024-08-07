@@ -23,14 +23,12 @@ export class AppService {
     return this.attemptGetHotels(body, url, headers, 0);
   }
 
-  private attemptGetHotels(body: any, url: string, headers: any, attempts: number): Observable<any> {
+  private attemptGetHotels(body: any, url: string, headers: any,attempts: number ): Observable<any> {
     
-    if (!this.isValidDate(body.checkIn) || !this.isValidDate(body.checkOut)) {
-      throw new BadRequestException("Formato de fecha invalidas")
-    }
-
     return this.httpService.post(url, body, {headers}).pipe(
       map((response: AxiosResponse) => {
+        console.log("RESPONSE ->", response);
+        
         if (!response.data || response.data.length === 0) {
           throw new BadRequestException("Sin resultados")
         }
@@ -43,20 +41,26 @@ export class AppService {
           hotelToken: hotel.hotelToken,
           images: hotel.images[0].urls.Large
         }));
-          
+
+        console.log("Resultados", limitedData);
+        
+        
         return limitedData;
       
       }),
-      catchError( error => {
-        if (attempts < 2) {
-          const newCheckInDate = this.dateUtilService.addDays(new Date(body.checkIn), 1);
-          const newCheckOutDate = this.dateUtilService.addDays(new Date(body.checkOut), 1);
-          body.checkIn = newCheckInDate.toISOString().split('T')[0];
-          body.checkOut = newCheckOutDate.toISOString().split('T')[0];
-          return this.attemptGetHotels(body, url, headers, attempts + 1);
-        } else {
-          return throwError(() => new BadRequestException('Sin resultados despues de multiples intentos', error))
+      catchError( (error) => {
+        
+        if (error) {
+          if (attempts < 2) {
+            body.checkIn = this.dateUtilService.addDays(body.checkIn, 1);
+            body.checkOut = this.dateUtilService.addDays(body.checkOut, 1);
+            return this.attemptGetHotels(body, url, headers, attempts + 1);
+          } else {
+             return throwError(() => new BadRequestException('Sin resultados despues de multiples intentos', error))
+
+          }
         }
+        
       })
     )
   }

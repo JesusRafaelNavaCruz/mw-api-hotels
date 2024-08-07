@@ -3,9 +3,12 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class DateUtilService {
-  addDays(date: Date, days: number): Date {
-    const result = new Date(date);
-    result.setDate(result.getDate() + days);
-    return result;
+  addDays(dateString: string, days: number): string {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid date');
+    }
+    date.setDate(date.getDate() + days);
+    return date.toISOString().split('T')[0]; // Return date in YYYY-MM-DD format
   }
 }
