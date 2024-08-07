@@ -54,6 +54,9 @@ export class AppService {
           if (attempts < 2) {
             body.checkIn = this.dateUtilService.addDays(body.checkIn, 1);
             body.checkOut = this.dateUtilService.addDays(body.checkOut, 1);
+            console.log("in", body.checkIn);
+            console.log("out", body.checkOut);
+            
             return this.attemptGetHotels(body, url, headers, attempts + 1);
           } else {
              return throwError(() => new BadRequestException('Sin resultados despues de multiples intentos', error))
